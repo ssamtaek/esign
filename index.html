@@ -37,6 +37,10 @@
     .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(20,30,60,.06); }
     .hidden { display: none !important; }
     .muted { color: var(--muted); font-size: 14px; }
+    .gate-q { font-size: 17px; font-weight: 600; margin: 6px 0 2px; }
+    .gate-input { width: 100%; font-size: 17px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; outline: none; margin-top: 8px;
+                  -webkit-user-select: text; user-select: text; }
+    .gate-input:focus { border-color: var(--primary); }
     .error { color: var(--err); font-size: 14px; min-height: 1.2em; margin: 8px 0 0; }
 
     label.field { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 6px; }
@@ -105,6 +109,15 @@
 <body>
 <main>
   <h1 id="title">전자서명</h1>
+
+  <section id="view-gate" class="card hidden">
+    <h2>접속 확인</h2>
+    <p id="gate-q" class="gate-q"></p>
+    <p id="gate-hint" class="muted"></p>
+    <input type="text" id="gate-input" class="gate-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="정답을 입력하세요">
+    <p id="gate-error" class="error"></p>
+    <button id="btn-gate" class="primary" type="button">확인</button>
+  </section>
 
   <section id="view-loading" class="card msg">
     <div class="spinner"></div>
@@ -181,8 +194,8 @@
 
   async function call(fn, ...args) {
     const body = fn === 'getInit'
-      ? { action: 'init', key: args[0] }
-      : { action: 'submit', key: args[0], dept: args[1], name: args[2], dataUrl: args[3], ua: args[4] };
+      ? { action: 'init', key: args[0], answer: GATE }
+      : { action: 'submit', key: args[0], dept: args[1], name: args[2], dataUrl: args[3], ua: args[4], answer: GATE };
     let res;
     try {
       res = await fetch(API_URL, {
@@ -201,7 +214,7 @@
     return data;
   }
   function show(view) {
-    ['loading', 'message', 'select'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== view));
+    ['gate', 'loading', 'message', 'select'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== view));
   }
   function message(kind, icon, title, text) {
     $('view-message').className = 'card msg ' + kind;
@@ -211,6 +224,12 @@
     closePopup();
     show('message');
   }
+  // 접속 확인 정답 (맞힌 뒤에는 이 브라우저에 기억)
+  const GATE_STORE = 'esign_gate';
+  let GATE = '';
+  try { GATE = localStorage.getItem(GATE_STORE) || ''; } catch (e) {}
+  function saveGate(v) { GATE = v; try { v ? localStorage.setItem(GATE_STORE, v) : localStorage.removeItem(GATE_STORE); } catch (e) {} }
+
   function loadKey() { try { return localStorage.getItem(STORE) || ''; } catch (e) { return ''; } }
   function saveKey(k) {
     try { localStorage.setItem(STORE, k); return localStorage.getItem(STORE) === k; } catch (e) { return false; }
@@ -225,6 +244,16 @@
           (hideDept(res.dept, res.rank) ? '' : '부서: ' + (res.dept || '') + '\n') +
           '성함: ' + (res.name || '') + '\n' +
           '제출 시각: ' + (res.signedAt || ''));
+      case 'GATE':
+        closePopup();
+        if (res.wrong) saveGate('');
+        $('gate-q').textContent = res.question || '우리 학교의 이름은?';
+        $('gate-hint').textContent = res.hint || '';
+        $('gate-error').textContent = res.wrong ? '정답이 아닙니다. 다시 입력해 주세요.' : '';
+        $('btn-gate').disabled = false;
+        show('gate');
+        $('gate-input').focus();
+        return;
       case 'CLOSED':
         return message('warn', '⏰', '서명이 마감되었습니다', '담당자에게 문의해 주세요.');
       case 'BAD_KEY':
@@ -429,6 +458,26 @@
       submitting = false; updateSubmitBtn(); btn.textContent = '제출';
     }
   });
+
+  /* ---------- 접속 확인 ---------- */
+  async function submitGate() {
+    const v = $('gate-input').value.trim();
+    if (!v) { $('gate-error').textContent = '정답을 입력해 주세요.'; return; }
+    $('btn-gate').disabled = true;
+    $('gate-error').textContent = '';
+    saveGate(v);
+    try {
+      const res = await call('getInit', KEY || loadKey());
+      KEY = res.key; saveKey(KEY);
+      render(res);
+    } catch (e) {
+      $('gate-error').textContent = (e && e.message) || '오류가 발생했습니다.';
+    } finally {
+      $('btn-gate').disabled = false;
+    }
+  }
+  $('btn-gate').addEventListener('click', submitGate);
+  $('gate-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitGate(); });
 
   /* ---------- 이스터에그: 하단 문구 2초 안에 3번 누르기 ---------- */
   let eggTaps = [];
