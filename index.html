@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>연수등록부</title>
+  <style>
+    :root {
+      --bg: #f4f6fb; --card: #fff; --text: #1d2433; --muted: #6b7489;
+      --primary: #2f5bea; --primary-d: #2248c4; --line: #dfe4ee;
+      --ok: #1f9d55; --warn: #d97706; --err: #d64545;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+      -webkit-text-size-adjust: 100%;
+      /* 서명 중 글자 선택(파란 드래그)·길게 누르기 메뉴 방지 */
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+    main { width: 100%; max-width: 560px; margin: 0 auto; padding: 20px 16px 24px; flex: 1; }
+    .credit { text-align: center; font-size: 12px; color: #a0a8ba; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); letter-spacing: .2px; }
+    .credit span { cursor: default; touch-action: manipulation; padding: 6px 4px; }
+    .egg { position: fixed; inset: 0; background: rgba(15,20,35,.45); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 24px; }
+    .egg-box { background: #fff; border-radius: 18px; padding: 26px 22px 18px; max-width: 320px; width: 100%; text-align: center;
+               box-shadow: 0 10px 30px rgba(20,30,60,.2); animation: pop .25s ease-out; }
+    .egg-box .wave { font-size: 40px; margin-bottom: 6px; }
+    .egg-box p { margin: 0 0 6px; font-size: 16px; line-height: 1.7; word-break: keep-all; }
+    .egg-box .primary { margin-top: 14px; }
+    @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    h1 { font-size: 20px; margin: 4px 0 16px; line-height: 1.4; word-break: keep-all; }
+    h2 { font-size: 18px; margin: 0 0 10px; }
+    p { line-height: 1.6; }
+    .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(20,30,60,.06); }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .error { color: var(--err); font-size: 14px; min-height: 1.2em; margin: 8px 0 0; }
+
+    label.field { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 6px; }
+    select {
+      width: 100%; font-size: 17px; padding: 13px 12px; border: 1px solid var(--line);
+      border-radius: 10px; background: #fff; color: var(--text); -webkit-appearance: none; appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #8a93a8 50%), linear-gradient(135deg, #8a93a8 50%, transparent 50%);
+      background-position: calc(100% - 20px) 55%, calc(100% - 14px) 55%;
+      background-size: 6px 6px; background-repeat: no-repeat;
+    }
+    select:disabled { background-color: #f2f4f8; color: #a0a8ba; }
+
+    /* 부서·성함 버튼 */
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+    .opt {
+      background: #f4f6fb; border: 1.5px solid var(--line); color: var(--text);
+      font-size: 16px; font-weight: 600; padding: 15px 8px; border-radius: 12px;
+      line-height: 1.3; word-break: keep-all;
+    }
+    .opt:active { background: #e8eefc; }
+    .opt.selected { background: #e8eefc; border-color: var(--primary); color: var(--primary); }
+    .opt:disabled { background: #f2f4f8; color: #a8b0c2; border-color: #eceff4; font-weight: 500; }
+    .opt small { display: block; font-size: 12px; font-weight: 500; margin-top: 3px; }
+    .step-head { margin: -4px 0 10px; }
+    .back { background: none; color: var(--primary); font-size: 15px; padding: 4px 0; }
+
+    button { font: inherit; cursor: pointer; border: 0; border-radius: 10px; }
+    .primary { width: 100%; background: var(--primary); color: #fff; font-size: 17px; font-weight: 600; padding: 14px; margin-top: 18px; }
+    .primary:active { background: var(--primary-d); }
+    .primary:disabled { background: #a9b6d8; cursor: default; }
+    .ghost { background: #eef1f7; color: var(--text); padding: 7px 12px; font-size: 14px; }
+
+    .msg { text-align: center; padding: 30px 20px; }
+    .msg .icon { font-size: 44px; margin-bottom: 8px; }
+    .msg p { white-space: pre-line; }
+    .msg.ok h2 { color: var(--ok); }
+    .msg.warn h2 { color: var(--warn); }
+    .msg.err h2 { color: var(--err); }
+    .spinner { width: 28px; height: 28px; border: 3px solid #d6ddef; border-top-color: var(--primary);
+               border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 10px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 팝업 */
+    .overlay { position: fixed; inset: 0; background: rgba(15,20,35,.55); display: flex;
+               align-items: flex-end; justify-content: center; z-index: 10; }
+    .sheet { background: #fff; width: 100%; max-width: 560px; max-height: 94vh; overflow-y: auto;
+             border-radius: 18px 18px 0 0; padding: 20px 16px 24px; }
+    @media (min-width: 600px) { .overlay { align-items: center; } .sheet { border-radius: 18px; } }
+    .who { font-size: 15px; color: var(--muted); margin-bottom: 10px; }
+    .who b { color: var(--text); font-size: 17px; }
+    .doc { white-space: pre-wrap; word-break: keep-all; line-height: 1.7; font-size: 15px;
+           background: #f8f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+           max-height: 30vh; overflow-y: auto; }
+    .agree { display: flex; gap: 8px; align-items: center; margin: 14px 0 4px; font-size: 15px; }
+    .agree input { width: 20px; height: 20px; }
+    .pad-head { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 8px; font-size: 14px; color: var(--muted); }
+    .pad-wrap { border: 2px dashed #b8c2d9; border-radius: 12px; position: relative; background: #fff; }
+    .pad-wrap::after { content: "서명"; position: absolute; left: 12px; bottom: 8px; color: #c8cfdf; font-size: 13px; pointer-events: none; }
+    canvas { display: block; width: 100%; height: 190px; touch-action: none; border-radius: 10px; }
+    .row { display: flex; gap: 8px; }
+    .row .ghost { flex: 0 0 30%; margin-top: 18px; font-size: 16px; padding: 14px; }
+    .row .primary { flex: 1; }
+    .note { font-size: 12.5px; color: var(--muted); text-align: center; margin: 10px 0 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1 id="title">전자서명</h1>
+
+  <section id="view-loading" class="card msg">
+    <div class="spinner"></div>
+    <p class="muted">접속 확인 중…</p>
+  </section>
+
+  <section id="view-message" class="card msg hidden">
+    <div class="icon" id="msg-icon"></div>
+    <h2 id="msg-title"></h2>
+    <p class="muted" id="msg-text"></p>
+  </section>
+
+  <section id="view-select" class="card hidden">
+    <!-- 1단계: 부서 선택 -->
+    <div id="step-dept">
+      <h2>본인 선택</h2>
+      <p class="muted">본인의 부서와 이름을 선택해 주세요.</p>
+      <div id="dept-list" class="grid"></div>
+    </div>
+
+    <!-- 2단계: 성함 선택 -->
+    <div id="step-name" class="hidden">
+      <div class="step-head">
+        <button id="btn-back" class="back" type="button">‹ 부서 다시 선택</button>
+      </div>
+      <h2 id="name-title"></h2>
+      <p class="muted">성함을 선택해 주세요.</p>
+      <div id="name-list" class="grid"></div>
+      <p id="select-error" class="error"></p>
+      <button id="btn-open" class="primary" disabled>서명하기</button>
+    </div>
+  </section>
+</main>
+
+<footer class="credit"><span id="credit">made by 남택상 with Claude</span></footer>
+
+<!-- 이스터에그 -->
+<div id="egg" class="egg hidden">
+  <div class="egg-box">
+    <div class="wave">👋</div>
+    <p>안녕하세요 ^^<br>교육연구부 남택상입니다.<br>감사합니다!</p>
+    <button id="egg-close" class="primary" type="button">닫기</button>
+  </div>
+</div>
+
+<!-- 서명 팝업 -->
+<div id="popup" class="overlay hidden">
+  <div class="sheet">
+    <div class="who"><span id="pop-dept"></span> <b id="pop-name"></b> <span id="pop-rank"></span></div>
+    <div id="doc" class="doc"></div>
+    <label class="agree"><input type="checkbox" id="agree"> 위 내용을 확인하였으며 동의합니다.</label>
+    <div class="pad-head">
+      <span>아래 칸에 서명해 주세요</span>
+      <button id="btn-clear" class="ghost" type="button">지우기</button>
+    </div>
+    <div class="pad-wrap"><canvas id="pad"></canvas></div>
+    <p id="sign-error" class="error"></p>
+    <div class="row">
+      <button id="btn-cancel" class="ghost" type="button">취소</button>
+      <button id="btn-submit" class="primary">제출</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORE = 'esign_temp_key';
+  const UA = navigator.userAgent;
+  let KEY = '', ROSTER = [], BODY = '', COURSE = '';
+
+  /* ---------- 공통 ---------- */
+  const $ = id => document.getElementById(id);
+  /* Apps Script 배포 주소(/exec) */
+  const API_URL = 'https://script.google.com/macros/s/AKfycbz8Saj0OJci0PJ8FEkDcSVHqE4H6G94hdTPBdvuEYpsuf5Qu1zt1Pjk0n7txfYW4ZJ-kw/exec';
+
+  async function call(fn, ...args) {
+    const body = fn === 'getInit'
+      ? { action: 'init', key: args[0] }
+      : { action: 'submit', key: args[0], dept: args[1], name: args[2], dataUrl: args[3], ua: args[4] };
+    let res;
+    try {
+      res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },  // 사전 요청(CORS preflight) 없이 전송
+        body: JSON.stringify(body),
+        credentials: 'omit',                                      // 구글 로그인 정보 보내지 않음
+        redirect: 'follow'
+      });
+    } catch (e) {
+      throw new Error('서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.');
+    }
+    if (!res.ok) throw new Error('서버 응답 오류 (' + res.status + ')');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+  function show(view) {
+    ['loading', 'message', 'select'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== view));
+  }
+  function message(kind, icon, title, text) {
+    $('view-message').className = 'card msg ' + kind;
+    $('msg-icon').textContent = icon;
+    $('msg-title').textContent = title;
+    $('msg-text').textContent = text || '';
+    closePopup();
+    show('message');
+  }
+  function loadKey() { try { return localStorage.getItem(STORE) || ''; } catch (e) { return ''; } }
+  function saveKey(k) {
+    try { localStorage.setItem(STORE, k); return localStorage.getItem(STORE) === k; } catch (e) { return false; }
+  }
+
+  /* ---------- 상태 처리 ---------- */
+  function render(res) {
+    if (res.title) { $('title').textContent = res.title; document.title = res.title; }
+    switch (res.state) {
+      case 'USED':
+        return message('ok', '✅', res.justSigned ? '서명이 제출되었습니다' : '이미 서명한 휴대폰입니다',
+          (hideDept(res.dept, res.rank) ? '' : '부서: ' + (res.dept || '') + '\n') +
+          '성함: ' + (res.name || '') + '\n' +
+          '제출 시각: ' + (res.signedAt || ''));
+      case 'CLOSED':
+        return message('warn', '⏰', '서명이 마감되었습니다', '담당자에게 문의해 주세요.');
+      case 'BAD_KEY':
+        return message('err', '⚠️', '접속 정보가 올바르지 않습니다', '페이지를 새로고침해 주세요.');
+      case 'TAKEN':
+        ROSTER = res.roster || ROSTER;
+        closePopup();
+        showNames(selDept);
+        $('select-error').textContent = '이미 서명이 제출된 성함입니다. 본인 성함을 다시 확인해 주세요.';
+        return show('select');
+      case 'NOT_FOUND':
+        ROSTER = res.roster || ROSTER;
+        closePopup();
+        showDepts();
+        return show('select');
+      case 'READY':
+        ROSTER = res.roster || [];
+        BODY = res.body || '';
+        COURSE = res.course || '';
+        showDepts();
+        return show('select');
+      default:
+        return message('err', '⚠️', '알 수 없는 상태입니다', '잠시 후 다시 시도해 주세요.');
+    }
+  }
+
+  /* ---------- 부서·이름 선택 ---------- */
+  let selDept = '', selName = '', selRank = '';
+
+  // 교장·교감처럼 부서 자리에 직위를 적은 경우 부서 표시를 생략
+  // 마지막 글자 받침에 따라 '은/는'
+  function josa(word) {
+    const c = String(word).trim().slice(-1).charCodeAt(0);
+    if (c < 0xAC00 || c > 0xD7A3) return '은';
+    return (c - 0xAC00) % 28 ? '은' : '는';
+  }
+
+  function hideDept(dept, rank) {
+    dept = String(dept || '').trim(); rank = String(rank || '');
+    return /교장|교감/.test(dept) || (dept && rank.indexOf(dept) >= 0);
+  }
+
+  function makeBtn(label, sub, disabled, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'opt';
+    b.textContent = label;
+    if (sub) { const s = document.createElement('small'); s.textContent = sub; b.appendChild(s); }
+    b.disabled = !!disabled;
+    b.addEventListener('click', () => onClick(b));
+    return b;
+  }
+
+  // 1단계: 부서 목록
+  function showDepts() {
+    selDept = ''; selName = ''; selRank = '';
+    const list = $('dept-list');
+    list.innerHTML = '';
+    [...new Set(ROSTER.map(r => r.dept))].forEach(d => {
+      list.appendChild(makeBtn(d, '', false, () => showNames(d)));
+    });
+    $('step-name').classList.add('hidden');
+    $('step-dept').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  }
+
+  // 2단계: 선택한 부서의 성함 목록
+  function showNames(dept) {
+    selDept = dept; selName = ''; selRank = '';
+    $('name-title').textContent = dept;
+    $('select-error').textContent = '';
+    const list = $('name-list');
+    list.innerHTML = '';
+    ROSTER.filter(r => r.dept === dept).forEach(r => {
+      list.appendChild(makeBtn(r.name, r.signed ? '서명 완료' : '', r.signed, btn => {
+        list.querySelectorAll('.opt').forEach(x => x.classList.remove('selected'));
+        btn.classList.add('selected');
+        selName = r.name;
+        selRank = r.rank || '';
+        $('select-error').textContent = '';
+        $('btn-open').disabled = false;
+      }));
+    });
+    $('btn-open').disabled = true;
+    $('step-dept').classList.add('hidden');
+    $('step-name').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  }
+
+  $('btn-back').addEventListener('click', showDepts);
+  $('btn-open').addEventListener('click', () => { if (selDept && selName) openPopup(); });
+
+  /* ---------- 팝업 ---------- */
+  function openPopup() {
+    $('pop-dept').textContent = hideDept(selDept, selRank) ? '' : selDept;
+    $('pop-name').textContent = selName;
+    $('pop-rank').textContent = selRank;
+    $('doc').textContent = BODY;
+    $('agree').checked = false;
+    $('sign-error').textContent = '';
+    $('popup').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    lastW = 0; hasInk = false;
+    updateSubmitBtn();
+    requestAnimationFrame(resizePad);
+  }
+
+  // 동의 체크 + 서명이 모두 있어야 제출 버튼 활성화
+  let submitting = false;
+  function updateSubmitBtn() {
+    $('btn-submit').disabled = submitting || !($('agree').checked && hasInk);
+  }
+  $('agree').addEventListener('change', updateSubmitBtn);
+  function closePopup() {
+    $('popup').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+  $('btn-cancel').addEventListener('click', closePopup);
+
+  /* ---------- 서명 패드 ---------- */
+  const pad = $('pad');
+  const ctx = pad.getContext('2d');
+  let drawing = false, hasInk = false, last = null, lastW = 0;
+
+  function resizePad() {
+    const rect = pad.getBoundingClientRect();
+    if (!rect.width || rect.width === lastW) return;
+    lastW = rect.width;
+    const snap = hasInk ? pad.toDataURL() : null;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    pad.width = Math.round(rect.width * dpr);
+    pad.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2.8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#111'; ctx.fillStyle = '#111';
+    if (snap) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height); img.src = snap; }
+  }
+  window.addEventListener('resize', resizePad);
+
+  function pos(e) { const r = pad.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  // iOS 사파리: 터치 기본 동작(글자 선택·확대·스크롤) 차단
+  ['touchstart', 'touchmove', 'touchend'].forEach(ev =>
+    pad.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+  pad.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('selectstart', e => {
+    if (!$('popup').classList.contains('hidden')) e.preventDefault();
+  });
+
+  pad.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { window.getSelection().removeAllRanges(); } catch (_) {}
+    pad.setPointerCapture(e.pointerId);
+    drawing = true; last = pos(e);
+    ctx.beginPath(); ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
+    hasInk = true;
+    updateSubmitBtn();
+  });
+  pad.addEventListener('pointermove', e => {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p;
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => pad.addEventListener(ev, () => { drawing = false; }));
+
+  $('btn-clear').addEventListener('click', () => {
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, pad.width, pad.height); ctx.restore();
+    hasInk = false;
+    updateSubmitBtn();
+  });
+
+  function exportPng() {
+    // 시트 셀에 넣기 좋게 가로 600px 이하로 줄여서 저장
+    const scale = Math.min(1, 600 / pad.width);
+    const out = document.createElement('canvas');
+    out.width = Math.round(pad.width * scale);
+    out.height = Math.round(pad.height * scale);
+    const o = out.getContext('2d');
+    o.fillStyle = '#fff'; o.fillRect(0, 0, out.width, out.height);
+    o.drawImage(pad, 0, 0, out.width, out.height);
+    return out.toDataURL('image/png');
+  }
+
+  /* ---------- 제출 ---------- */
+  $('btn-submit').addEventListener('click', async () => {
+    const err = $('sign-error');
+    err.textContent = '';
+    if (!$('agree').checked) { err.textContent = '동의 항목에 체크해 주세요.'; return; }
+    if (!hasInk) { err.textContent = '서명을 해 주세요.'; return; }
+    const dept = selDept, name = selName;
+    const who = [hideDept(dept, selRank) ? '' : dept, name, selRank].filter(Boolean).join(' ');
+    if (!confirm(who + josa(who) + ' ' + (COURSE || '연수') + '에 참석하였음을 확인합니다.')) return;
+
+    const btn = $('btn-submit');
+    submitting = true; updateSubmitBtn(); btn.textContent = '제출 중…';
+    try {
+      render(await call('submitSignature', KEY, dept, name, exportPng(), UA));
+    } catch (e) {
+      err.textContent = (e && e.message) || '제출 중 오류가 발생했습니다.';
+    } finally {
+      submitting = false; updateSubmitBtn(); btn.textContent = '제출';
+    }
+  });
+
+  /* ---------- 이스터에그: 하단 문구 2초 안에 3번 누르기 ---------- */
+  let eggTaps = [];
+  $('credit').addEventListener('click', () => {
+    const now = Date.now();
+    eggTaps = eggTaps.filter(t => now - t < 2000);
+    eggTaps.push(now);
+    if (eggTaps.length >= 3) { eggTaps = []; $('egg').classList.remove('hidden'); }
+  });
+  $('egg-close').addEventListener('click', () => $('egg').classList.add('hidden'));
+  $('egg').addEventListener('click', e => { if (e.target.id === 'egg') $('egg').classList.add('hidden'); });
+
+  /* ---------- 시작: 임시키 발급/확인 ---------- */
+  (async function init() {
+    try {
+      const res = await call('getInit', loadKey());
+      KEY = res.key;
+      if (!saveKey(KEY)) {
+        return message('err', '⚠️', '이 브라우저에서는 서명할 수 없습니다',
+          '브라우저의 저장 기능이 꺼져 있거나 비공개(시크릿) 모드입니다.\n일반 모드의 크롬·사파리·삼성인터넷에서 열어 주세요.');
+      }
+      render(res);
+    } catch (e) {
+      message('err', '⚠️', '접속 중 오류가 발생했습니다', ((e && e.message) || String(e)) + '\n잠시 후 새로고침해 주세요.');
+    }
+  })();
+</script>
+</body>
+</html>
