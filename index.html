@@ -410,14 +410,13 @@
         if (ink) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
       }
     }
-    const OW = 600, OH = 200, M = 0.14;
+    const OW = 600, OH = 200, MX = 0.06, MY = 0.22;  // 투명 배경 + 위아래 여백
     const out = document.createElement('canvas');
     out.width = OW; out.height = OH;
     const o = out.getContext('2d');
-    o.fillStyle = '#fff'; o.fillRect(0, 0, OW, OH);
     if (x1 < 0) return out;
     const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
-    const s = Math.min(OW * (1 - 2 * M) / bw, OH * (1 - 2 * M) / bh);
+    const s = Math.min(OW * (1 - 2 * MX) / bw, OH * (1 - 2 * MY) / bh);
     const dw = bw * s, dh = bh * s;
     o.imageSmoothingQuality = 'high';
     o.drawImage(src, x0, y0, bw, bh, (OW - dw) / 2, (OH - dh) / 2, dw, dh);
