@@ -397,16 +397,35 @@
     updateSubmitBtn();
   });
 
-  function exportPng() {
-    // 시트 셀에 넣기 좋게 가로 600px 이하로 줄여서 저장
-    const scale = Math.min(1, 600 / pad.width);
+  // 서명 부분만 잘라 가운데에 놓고 둘레에 여백을 둔 600x200 PNG로 만듦
+  // (인쇄할 때 서명 획이 표 선에 닿지 않도록)
+  function tidyCanvas(src, whiteBg) {
+    const w = src.width, h = src.height;
+    const d = src.getContext('2d').getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const ink = whiteBg ? (d[i + 3] > 0 && d[i] + d[i + 1] + d[i + 2] < 600) : d[i + 3] > 20;
+        if (ink) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+    }
+    const OW = 600, OH = 200, M = 0.14;
     const out = document.createElement('canvas');
-    out.width = Math.round(pad.width * scale);
-    out.height = Math.round(pad.height * scale);
+    out.width = OW; out.height = OH;
     const o = out.getContext('2d');
-    o.fillStyle = '#fff'; o.fillRect(0, 0, out.width, out.height);
-    o.drawImage(pad, 0, 0, out.width, out.height);
-    return out.toDataURL('image/png');
+    o.fillStyle = '#fff'; o.fillRect(0, 0, OW, OH);
+    if (x1 < 0) return out;
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    const s = Math.min(OW * (1 - 2 * M) / bw, OH * (1 - 2 * M) / bh);
+    const dw = bw * s, dh = bh * s;
+    o.imageSmoothingQuality = 'high';
+    o.drawImage(src, x0, y0, bw, bh, (OW - dw) / 2, (OH - dh) / 2, dw, dh);
+    return out;
+  }
+
+  function exportPng() {
+    return tidyCanvas(pad, false).toDataURL('image/png');
   }
 
   /* ---------- 제출 ---------- */
